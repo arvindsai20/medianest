@@ -1,5 +1,4 @@
 import {
-  BlobServiceClient,
   ContainerClient,
 } from "@azure/storage-blob";
 

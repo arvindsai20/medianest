@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import { useEffect, useState, FormEvent } from "react";
 import Head from "next/head";
+import Link from "next/link";
 
 type Video = {
   videoId: string;
@@ -36,7 +37,10 @@ type Rating = {
 export default function WatchVideo() {
   const router = useRouter();
 
-  const { videoId } = router.query;
+  const videoId =
+    typeof router.query.videoId === "string"
+      ? router.query.videoId
+      : undefined;
 
   const [video, setVideo] =
     useState<Video | null>(null);
@@ -110,10 +114,12 @@ export default function WatchVideo() {
   useEffect(() => {
     if (
       !router.isReady ||
-      typeof videoId !== "string"
+      !videoId
     ) {
       return;
     }
+
+    const currentVideoId = videoId;
 
     async function loadVideo() {
       try {
@@ -121,7 +127,7 @@ export default function WatchVideo() {
         setError("");
 
         const response = await fetch(
-          `/api/videos/${videoId}`
+          `/api/videos/${currentVideoId}`
         );
 
         const data = await response.json();
@@ -139,7 +145,7 @@ export default function WatchVideo() {
         // Generate a temporary read-only
         // SAS URL for browser playback.
         const sasResponse = await fetch(
-          `/api/videos/${videoId}/sas`
+          `/api/videos/${currentVideoId}/sas`
         );
 
         const sasData =
@@ -171,10 +177,12 @@ export default function WatchVideo() {
   useEffect(() => {
     if (
       !router.isReady ||
-      typeof videoId !== "string"
+      !videoId
     ) {
       return;
     }
+
+    const currentVideoId = videoId;
 
     async function loadComments() {
       try {
@@ -183,7 +191,7 @@ export default function WatchVideo() {
 
         const response = await fetch(
           `/api/comments?videoId=${encodeURIComponent(
-            videoId
+            currentVideoId
           )}`
         );
 
@@ -220,10 +228,12 @@ export default function WatchVideo() {
   useEffect(() => {
     if (
       !router.isReady ||
-      typeof videoId !== "string"
+      !videoId
     ) {
       return;
     }
+
+    const currentVideoId = videoId;
 
     async function loadRatings() {
       try {
@@ -232,7 +242,7 @@ export default function WatchVideo() {
 
         const response = await fetch(
           `/api/ratings?videoId=${encodeURIComponent(
-            videoId
+            currentVideoId
           )}`
         );
 
@@ -279,10 +289,7 @@ export default function WatchVideo() {
   ) {
     event.preventDefault();
 
-    if (
-      typeof videoId !== "string" ||
-      !videoId
-    ) {
+    if (!videoId) {
       return;
     }
 
@@ -363,10 +370,7 @@ export default function WatchVideo() {
   ) {
     event.preventDefault();
 
-    if (
-      typeof videoId !== "string" ||
-      !videoId
-    ) {
+    if (!videoId) {
       return;
     }
 
@@ -476,12 +480,12 @@ export default function WatchVideo() {
         <div className="mx-auto max-w-6xl">
 
           {/* Back */}
-          <a
+          <Link
             href="/latest"
             className="text-sm text-blue-400 hover:text-blue-300"
           >
             ← Back to Latest Videos
-          </a>
+          </Link>
 
           {/* Loading */}
           {loading && (

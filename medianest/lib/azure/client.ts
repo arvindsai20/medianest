@@ -2,42 +2,20 @@ import { TableServiceClient } from "@azure/data-tables";
 import { BlobServiceClient } from "@azure/storage-blob";
 import { QueueServiceClient } from "@azure/storage-queue";
 
-const connectionString =
-  process.env.AZURE_STORAGE_CONNECTION_STRING;
+const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
 if (!connectionString) {
-  throw new Error(
-    "AZURE_STORAGE_CONNECTION_STRING is not defined."
-  );
+  throw new Error("AZURE_STORAGE_CONNECTION_STRING is not defined.");
 }
 
-const isLocalAzurite =
-  connectionString.includes("127.0.0.1") ||
-  connectionString.includes("localhost");
-
 export const tableServiceClient =
-  TableServiceClient.fromConnectionString(
-    connectionString,
-    {
-      allowInsecureConnection: isLocalAzurite,
-    }
-  );
+  TableServiceClient.fromConnectionString(connectionString);
 
 export const blobServiceClient =
-  BlobServiceClient.fromConnectionString(
-    connectionString,
-    {
-      allowInsecureConnection: isLocalAzurite,
-    }
-  );
+  BlobServiceClient.fromConnectionString(connectionString);
 
 export const queueServiceClient =
-  QueueServiceClient.fromConnectionString(
-    connectionString,
-    {
-      allowInsecureConnection: isLocalAzurite,
-    }
-  );
+  QueueServiceClient.fromConnectionString(connectionString);
 
 export const STORAGE_CONFIG = {
   blobContainer:

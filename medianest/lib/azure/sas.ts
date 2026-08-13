@@ -14,13 +14,14 @@ if (!connectionString) {
 }
 
 function getConnectionStringValue(
+  connectionStringValue: string,
   name: string
 ): string {
-  const match = connectionString.match(
+  const match = connectionStringValue.match(
     new RegExp(`${name}=([^;]+)`)
   );
 
-  if (!match) {
+  if (!match?.[1]) {
     throw new Error(
       `${name} is missing from AZURE_STORAGE_CONNECTION_STRING.`
     );
@@ -30,13 +31,22 @@ function getConnectionStringValue(
 }
 
 const accountName =
-  getConnectionStringValue("AccountName");
+  getConnectionStringValue(
+    connectionString,
+    "AccountName"
+  );
 
 const accountKey =
-  getConnectionStringValue("AccountKey");
+  getConnectionStringValue(
+    connectionString,
+    "AccountKey"
+  );
 
 const blobEndpoint =
-  getConnectionStringValue("BlobEndpoint");
+  getConnectionStringValue(
+    connectionString,
+    "BlobEndpoint"
+  );
 
 const credential =
   new StorageSharedKeyCredential(
