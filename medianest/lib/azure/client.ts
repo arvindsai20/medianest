@@ -2,20 +2,36 @@ import { TableServiceClient } from "@azure/data-tables";
 import { BlobServiceClient } from "@azure/storage-blob";
 import { QueueServiceClient } from "@azure/storage-queue";
 
-const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+function getConnectionString(): string {
+  const connectionString =
+    process.env.AZURE_STORAGE_CONNECTION_STRING;
 
-if (!connectionString) {
-  throw new Error("AZURE_STORAGE_CONNECTION_STRING is not defined.");
+  if (!connectionString) {
+    throw new Error(
+      "AZURE_STORAGE_CONNECTION_STRING is not defined."
+    );
+  }
+
+  return connectionString;
 }
 
-export const tableServiceClient =
-  TableServiceClient.fromConnectionString(connectionString);
+export function getTableServiceClient() {
+  return TableServiceClient.fromConnectionString(
+    getConnectionString()
+  );
+}
 
-export const blobServiceClient =
-  BlobServiceClient.fromConnectionString(connectionString);
+export function getBlobServiceClient() {
+  return BlobServiceClient.fromConnectionString(
+    getConnectionString()
+  );
+}
 
-export const queueServiceClient =
-  QueueServiceClient.fromConnectionString(connectionString);
+export function getQueueServiceClient() {
+  return QueueServiceClient.fromConnectionString(
+    getConnectionString()
+  );
+}
 
 export const STORAGE_CONFIG = {
   blobContainer:

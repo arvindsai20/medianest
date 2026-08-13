@@ -4,22 +4,27 @@ import {
   StorageSharedKeyCredential,
 } from "@azure/storage-blob";
 
-const connectionString =
-  process.env.AZURE_STORAGE_CONNECTION_STRING;
+function getConnectionString(): string {
+  const connectionString =
+    process.env.AZURE_STORAGE_CONNECTION_STRING;
 
-if (!connectionString) {
-  throw new Error(
-    "AZURE_STORAGE_CONNECTION_STRING is not defined."
-  );
+  if (!connectionString) {
+    throw new Error(
+      "AZURE_STORAGE_CONNECTION_STRING is not defined."
+    );
+  }
+
+  return connectionString;
 }
 
 function getConnectionStringValue(
   connectionStringValue: string,
   name: string
 ): string {
-  const match = connectionStringValue.match(
-    new RegExp(`${name}=([^;]+)`)
-  );
+  const match =
+    connectionStringValue.match(
+      new RegExp(`${name}=([^;]+)`)
+    );
 
   if (!match?.[1]) {
     throw new Error(
@@ -30,35 +35,39 @@ function getConnectionStringValue(
   return match[1];
 }
 
-const accountName =
-  getConnectionStringValue(
-    connectionString,
-    "AccountName"
-  );
-
-const accountKey =
-  getConnectionStringValue(
-    connectionString,
-    "AccountKey"
-  );
-
-const blobEndpoint =
-  getConnectionStringValue(
-    connectionString,
-    "BlobEndpoint"
-  );
-
-const credential =
-  new StorageSharedKeyCredential(
-    accountName,
-    accountKey
-  );
-
 export function generateVideoSasUrl(
   blobName: string
 ): string {
+  const connectionString =
+    getConnectionString();
+
+  const accountName =
+    getConnectionStringValue(
+      connectionString,
+      "AccountName"
+    );
+
+  const accountKey =
+    getConnectionStringValue(
+      connectionString,
+      "AccountKey"
+    );
+
+  const blobEndpoint =
+    getConnectionStringValue(
+      connectionString,
+      "BlobEndpoint"
+    );
+
+  const credential =
+    new StorageSharedKeyCredential(
+      accountName,
+      accountKey
+    );
+
   const containerName =
-    process.env.AZURE_BLOB_CONTAINER || "videos";
+    process.env.AZURE_BLOB_CONTAINER ||
+    "videos";
 
   // Allow a small clock difference between
   // the browser, Next.js and Azurite.

@@ -3,11 +3,14 @@ import {
 } from "@azure/storage-blob";
 
 import {
-  blobServiceClient,
+  getBlobServiceClient,
   STORAGE_CONFIG,
 } from "./client";
 
 export async function getVideoContainer(): Promise<ContainerClient> {
+  const blobServiceClient =
+    getBlobServiceClient();
+
   const container =
     blobServiceClient.getContainerClient(
       STORAGE_CONFIG.blobContainer
@@ -25,7 +28,8 @@ export async function uploadVideo(
   data: Buffer,
   contentType: string
 ) {
-  const container = await getVideoContainer();
+  const container =
+    await getVideoContainer();
 
   const blockBlobClient =
     container.getBlockBlobClient(blobName);
@@ -39,8 +43,11 @@ export async function uploadVideo(
   return blockBlobClient.url;
 }
 
-export async function deleteVideo(blobName: string) {
-  const container = await getVideoContainer();
+export async function deleteVideo(
+  blobName: string
+) {
+  const container =
+    await getVideoContainer();
 
   const blockBlobClient =
     container.getBlockBlobClient(blobName);
@@ -48,8 +55,11 @@ export async function deleteVideo(blobName: string) {
   await blockBlobClient.deleteIfExists();
 }
 
-export async function videoExists(blobName: string) {
-  const container = await getVideoContainer();
+export async function videoExists(
+  blobName: string
+) {
+  const container =
+    await getVideoContainer();
 
   const blockBlobClient =
     container.getBlockBlobClient(blobName);

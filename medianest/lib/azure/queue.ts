@@ -1,9 +1,12 @@
 import {
-  queueServiceClient,
+  getQueueServiceClient,
   STORAGE_CONFIG,
 } from "./client";
 
 export async function getVideoQueue() {
+  const queueServiceClient =
+    getQueueServiceClient();
+
   const queueClient =
     queueServiceClient.getQueueClient(
       STORAGE_CONFIG.videoQueue
