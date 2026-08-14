@@ -1,6 +1,7 @@
 ﻿# Docs for the Azure Web Apps Deploy action:
 # https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure:
+#
+# GitHub Actions for Azure:
 # https://github.com/Azure/actions
 
 name: Build and deploy Node.js app to Azure Web App - medianest-web
@@ -29,7 +30,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: "22.x"
           cache: npm
           cache-dependency-path: medianest/package-lock.json
 
@@ -40,6 +41,7 @@ jobs:
 
       - name: Verify build dependencies
         run: |
+          npx next --version
           npx eslint --version
           npx tsc --version
 
@@ -48,11 +50,18 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: Upload artifact for deployment
+      - name: Prepare standalone deployment package
+        run: |
+          cp -r .next/static .next/standalone/.next/
+          if [ -d public ]; then
+            cp -r public .next/standalone/
+          fi
+
+      - name: Upload standalone application
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
-          path: medianest
+          name: medianest-standalone
+          path: medianest/.next/standalone
 
   deploy:
     runs-on: ubuntu-latest
@@ -63,10 +72,10 @@ jobs:
       contents: read
 
     steps:
-      - name: Download artifact from build job
+      - name: Download standalone application
         uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: medianest-standalone
           path: medianest
 
       - name: Login to Azure
@@ -76,10 +85,10 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_91A8C3A10B9E4688862AE87B71897809 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_744E97D579CE4B27A4CBC61728F87233 }}
 
-      - name: Deploy to Azure Web App
+      - name: Deploy standalone application to Azure
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'medianest-web'
-          slot-name: 'Production'
+          app-name: "medianest-web"
+          slot-name: "Production"
           package: ./medianest
