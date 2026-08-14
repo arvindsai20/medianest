@@ -1,0 +1,23 @@
+{
+  "name": "medianest-functions",
+  "version": "1.0.0",
+  "description": "MediaNest Azure Functions for video processing",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "func start",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.3.0",
+    "@azure/functions": "^4.9.0",
+    "@azure/storage-blob": "^12.28.0",
+    "ffmpeg-static": "^5.2.0",
+    "microsoft-cognitiveservices-speech-sdk": "^1.51.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.0.0"
+  }
+}
