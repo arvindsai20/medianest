@@ -1,5 +1,7 @@
-﻿# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+﻿# Docs for the Azure Web Apps Deploy action:
+# https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure:
+# https://github.com/Azure/actions
 
 name: Build and deploy Node.js app to Azure Web App - medianest-web
 
@@ -20,15 +22,12 @@ jobs:
       run:
         working-directory: ./medianest
 
-    env:
-      NODE_ENV: development
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: npm
@@ -36,16 +35,18 @@ jobs:
 
       - name: Install all dependencies
         run: npm ci --include=dev
+        env:
+          NODE_ENV: development
 
-      - name: Verify development dependencies
+      - name: Verify build dependencies
         run: |
-          node --version
-          npm --version
           npx eslint --version
           npx tsc --version
 
       - name: Build Next.js application
         run: npm run build
+        env:
+          NODE_ENV: production
 
       - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
