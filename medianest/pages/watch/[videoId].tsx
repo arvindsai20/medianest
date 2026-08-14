@@ -42,80 +42,42 @@ export default function WatchVideo() {
       ? router.query.videoId
       : undefined;
 
-  const [video, setVideo] =
-    useState<Video | null>(null);
+  const [video, setVideo] = useState<Video | null>(null);
+  const [videoUrl, setVideoUrl] = useState("");
 
-  const [videoUrl, setVideoUrl] =
-    useState("");
+  const [loading, setLoading] = useState(true);
+  const [videoLoading, setVideoLoading] = useState(true);
 
-  const [loading, setLoading] =
-    useState(true);
-
-  const [videoLoading, setVideoLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState("");
-
-  const [videoError, setVideoError] =
-    useState("");
+  const [error, setError] = useState("");
+  const [videoError, setVideoError] = useState("");
 
   // Comments
-  const [comments, setComments] =
-    useState<Comment[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
-  const [commentsLoading, setCommentsLoading] =
-    useState(false);
+  const [commentName, setCommentName] = useState("");
+  const [commentText, setCommentText] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
 
-  const [commentName, setCommentName] =
-    useState("");
-
-  const [commentText, setCommentText] =
-    useState("");
-
-  const [commentSubmitting, setCommentSubmitting] =
-    useState(false);
-
-  const [commentError, setCommentError] =
-    useState("");
-
-  const [commentSuccess, setCommentSuccess] =
-    useState("");
+  const [commentError, setCommentError] = useState("");
+  const [commentSuccess, setCommentSuccess] = useState("");
 
   // Ratings
-  const [ratings, setRatings] =
-    useState<Rating[]>([]);
+  const [ratings, setRatings] = useState<Rating[]>([]);
+  const [averageRating, setAverageRating] = useState(0);
+  const [totalRatings, setTotalRatings] = useState(0);
 
-  const [averageRating, setAverageRating] =
-    useState(0);
+  const [ratingName, setRatingName] = useState("");
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [ratingsLoading, setRatingsLoading] = useState(false);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
 
-  const [totalRatings, setTotalRatings] =
-    useState(0);
-
-  const [ratingName, setRatingName] =
-    useState("");
-
-  const [selectedRating, setSelectedRating] =
-    useState(0);
-
-  const [ratingsLoading, setRatingsLoading] =
-    useState(false);
-
-  const [ratingSubmitting, setRatingSubmitting] =
-    useState(false);
-
-  const [ratingError, setRatingError] =
-    useState("");
-
-  const [ratingSuccess, setRatingSuccess] =
-    useState("");
+  const [ratingError, setRatingError] = useState("");
+  const [ratingSuccess, setRatingSuccess] = useState("");
 
   // Load video
   useEffect(() => {
-    if (
-      !router.isReady ||
-      !videoId
-    ) {
+    if (!router.isReady || !videoId) {
       return;
     }
 
@@ -125,6 +87,8 @@ export default function WatchVideo() {
       try {
         setLoading(true);
         setError("");
+        setVideoError("");
+        setVideoLoading(true);
 
         const response = await fetch(
           `/api/videos/${currentVideoId}`
@@ -142,14 +106,12 @@ export default function WatchVideo() {
 
         setVideo(data.video);
 
-        // Generate a temporary read-only
-        // SAS URL for browser playback.
+        // Generate temporary read-only SAS URL
         const sasResponse = await fetch(
           `/api/videos/${currentVideoId}/sas`
         );
 
-        const sasData =
-          await sasResponse.json();
+        const sasData = await sasResponse.json();
 
         if (!sasResponse.ok) {
           throw new Error(
@@ -175,10 +137,7 @@ export default function WatchVideo() {
 
   // Load comments
   useEffect(() => {
-    if (
-      !router.isReady ||
-      !videoId
-    ) {
+    if (!router.isReady || !videoId) {
       return;
     }
 
@@ -206,10 +165,7 @@ export default function WatchVideo() {
 
         setComments(data.comments || []);
       } catch (error) {
-        console.error(
-          "Load comments error:",
-          error
-        );
+        console.error("Load comments error:", error);
 
         setCommentError(
           error instanceof Error
@@ -226,10 +182,7 @@ export default function WatchVideo() {
 
   // Load ratings
   useEffect(() => {
-    if (
-      !router.isReady ||
-      !videoId
-    ) {
+    if (!router.isReady || !videoId) {
       return;
     }
 
@@ -265,10 +218,7 @@ export default function WatchVideo() {
           Number(data.totalRatings || 0)
         );
       } catch (error) {
-        console.error(
-          "Load ratings error:",
-          error
-        );
+        console.error("Load ratings error:", error);
 
         setRatingError(
           error instanceof Error
@@ -297,37 +247,29 @@ export default function WatchVideo() {
     setCommentSuccess("");
 
     if (!commentName.trim()) {
-      setCommentError(
-        "Please enter your name."
-      );
+      setCommentError("Please enter your name.");
       return;
     }
 
     if (!commentText.trim()) {
-      setCommentError(
-        "Please enter a comment."
-      );
+      setCommentError("Please enter a comment.");
       return;
     }
 
     try {
       setCommentSubmitting(true);
 
-      const response = await fetch(
-        "/api/comments",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            videoId,
-            userName: commentName.trim(),
-            comment: commentText.trim(),
-          }),
-        }
-      );
+      const response = await fetch("/api/comments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          videoId,
+          userName: commentName.trim(),
+          comment: commentText.trim(),
+        }),
+      });
 
       const data = await response.json();
 
@@ -378,9 +320,7 @@ export default function WatchVideo() {
     setRatingSuccess("");
 
     if (!ratingName.trim()) {
-      setRatingError(
-        "Please enter your name."
-      );
+      setRatingError("Please enter your name.");
       return;
     }
 
@@ -397,21 +337,17 @@ export default function WatchVideo() {
     try {
       setRatingSubmitting(true);
 
-      const response = await fetch(
-        "/api/ratings",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            videoId,
-            userName: ratingName.trim(),
-            rating: selectedRating,
-          }),
-        }
-      );
+      const response = await fetch("/api/ratings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          videoId,
+          userName: ratingName.trim(),
+          rating: selectedRating,
+        }),
+      });
 
       const data = await response.json();
 
@@ -422,16 +358,14 @@ export default function WatchVideo() {
         );
       }
 
-      const newRating: Rating =
-        data.rating;
+      const newRating: Rating = data.rating;
 
       setRatings((currentRatings) => [
         newRating,
         ...currentRatings,
       ]);
 
-      const newTotal =
-        totalRatings + 1;
+      const newTotal = totalRatings + 1;
 
       const newAverage =
         (averageRating * totalRatings +
@@ -476,197 +410,329 @@ export default function WatchVideo() {
         </title>
       </Head>
 
-      <main className="min-h-screen bg-[#070b14] px-6 py-10 text-white">
-        <div className="mx-auto max-w-6xl">
+      <main className="min-h-screen bg-[#050505] text-white">
+        {/* Header */}
+        <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050505]/95 backdrop-blur-xl">
+          <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
+            <Link
+              href="/"
+              className="shrink-0"
+            >
+              <div className="text-2xl font-black tracking-tight">
+                Media<span className="text-red-500">Nest</span>
+              </div>
+            </Link>
 
+            <div className="hidden items-center gap-3 sm:flex">
+              <Link
+                href="/login"
+                className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-semibold text-gray-200 transition hover:border-red-500/40 hover:bg-white/5"
+              >
+                Creator Login
+              </Link>
+
+              <Link
+                href="/register"
+                className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-red-500"
+              >
+                Register
+              </Link>
+            </div>
+          </div>
+        </header>
+
+        <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:py-10">
           {/* Back */}
           <Link
             href="/latest"
-            className="text-sm text-blue-400 hover:text-blue-300"
+            className="inline-flex items-center gap-2 text-sm font-medium text-gray-400 transition hover:text-white"
           >
-            ← Back to Latest Videos
+            <span className="text-lg">←</span>
+            Back to Latest Videos
           </Link>
 
           {/* Loading */}
           {loading && (
-            <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-10 text-center text-gray-400">
-              Loading video...
+            <div className="mt-8 overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d0d]">
+              <div className="flex aspect-video items-center justify-center">
+                <div className="text-center">
+                  <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-white/10 border-t-red-500" />
+                  <p className="text-sm text-gray-400">
+                    Loading video...
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
           {/* Error */}
           {!loading && error && (
-            <div className="mt-8 rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-red-300">
-              {error}
+            <div className="mt-8 rounded-3xl border border-red-500/20 bg-red-500/10 p-8 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-2xl">
+                !
+              </div>
+
+              <h2 className="text-xl font-bold">
+                Unable to load video
+              </h2>
+
+              <p className="mx-auto mt-2 max-w-lg text-sm text-red-200/70">
+                {error}
+              </p>
+
+              <Link
+                href="/latest"
+                className="mt-6 inline-flex rounded-xl bg-red-600 px-6 py-3 text-sm font-bold transition hover:bg-red-500"
+              >
+                Browse Latest Videos
+              </Link>
             </div>
           )}
 
-          {/* Video */}
+          {/* Main video */}
           {!loading &&
             !error &&
             video && (
-              <div className="mt-8">
+              <>
+                <section className="mt-8">
+                  <div className="overflow-hidden rounded-3xl border border-white/10 bg-black shadow-2xl shadow-black/40">
+                    <div className="relative flex min-h-[300px] items-center justify-center bg-black">
+                      {videoLoading &&
+                        !videoError && (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
+                            <div className="text-center">
+                              <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-white/10 border-t-red-500" />
+                              <p className="text-sm text-gray-500">
+                                Loading video player...
+                              </p>
+                            </div>
+                          </div>
+                        )}
 
-                {/* Player */}
-                <div className="overflow-hidden rounded-2xl border border-white/10 bg-black">
+                      {videoError && (
+                        <div className="flex aspect-video w-full items-center justify-center p-8 text-center">
+                          <div>
+                            <div className="mb-4 text-4xl">
+                              ⚠
+                            </div>
 
-                  {videoLoading &&
-                    !videoError && (
-                      <div className="flex h-[400px] items-center justify-center text-gray-400">
-                        Loading video player...
+                            <h3 className="font-semibold">
+                              Video playback unavailable
+                            </h3>
+
+                            <p className="mt-2 max-w-md text-sm text-gray-500">
+                              {videoError}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {videoUrl &&
+                        !videoError && (
+                          <video
+                            key={videoUrl}
+                            controls
+                            playsInline
+                            preload="metadata"
+                            className={`max-h-[75vh] w-full ${
+                              videoLoading
+                                ? "invisible"
+                                : "visible"
+                            }`}
+                            onLoadedMetadata={() => {
+                              setVideoLoading(false);
+                            }}
+                            onCanPlay={() => {
+                              setVideoLoading(false);
+                            }}
+                            onError={() => {
+                              setVideoLoading(false);
+                              setVideoError(
+                                "The video could not be played. The video file may use an unsupported format."
+                              );
+                            }}
+                          >
+                            <source
+                              src={videoUrl}
+                              type={
+                                video.contentType ||
+                                "video/mp4"
+                              }
+                            />
+
+                            Your browser does not support
+                            video playback.
+                          </video>
+                        )}
+                    </div>
+                  </div>
+                </section>
+
+                {/* Video heading */}
+                <section className="mt-7">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="max-w-4xl">
+                      <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
+                        {video.title}
+                      </h1>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                        <span>
+                          Uploaded{" "}
+                          {new Date(
+                            video.createdAt
+                          ).toLocaleString()}
+                        </span>
+
+                        <span className="text-gray-700">
+                          •
+                        </span>
+
+                        <span>
+                          {video.genre}
+                        </span>
+                      </div>
+                    </div>
+
+                    <span className="w-fit shrink-0 rounded-full border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400">
+                      {video.ageRating}
+                    </span>
+                  </div>
+                </section>
+
+                {/* Main content grid */}
+                <div className="mt-8 grid gap-8 lg:grid-cols-[1.4fr_0.6fr]">
+                  {/* Video information */}
+                  <section className="rounded-3xl border border-white/10 bg-[#0c0c0c] p-6 sm:p-8">
+                    <div className="mb-7">
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-500">
+                        Video Details
+                      </p>
+
+                      <h2 className="mt-2 text-2xl font-bold">
+                        About this video
+                      </h2>
+                    </div>
+
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Publisher
+                        </p>
+
+                        <p className="mt-2 text-base font-medium text-gray-200">
+                          {video.publisher}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Producer
+                        </p>
+
+                        <p className="mt-2 text-base font-medium text-gray-200">
+                          {video.producer}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Genre
+                        </p>
+
+                        <p className="mt-2 text-base font-medium text-gray-200">
+                          {video.genre}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Age Rating
+                        </p>
+
+                        <p className="mt-2 text-base font-medium text-gray-200">
+                          {video.ageRating}
+                        </p>
+                      </div>
+                    </div>
+
+                    {video.description && (
+                      <div className="mt-8 border-t border-white/10 pt-7">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Description
+                        </p>
+
+                        <p className="mt-3 whitespace-pre-wrap leading-7 text-gray-400">
+                          {video.description}
+                        </p>
                       </div>
                     )}
+                  </section>
 
-                  {videoError && (
-                    <div className="flex h-[400px] items-center justify-center p-6 text-center text-red-300">
-                      {videoError}
-                    </div>
-                  )}
-
-                  {videoUrl &&
-                    !videoError && (
-                      <video
-                        key={videoUrl}
-                        controls
-                        playsInline
-                        preload="metadata"
-                        className={`max-h-[70vh] w-full ${
-                          videoLoading
-                            ? "hidden"
-                            : "block"
-                        }`}
-                        onLoadedMetadata={() => {
-                          setVideoLoading(false);
-                        }}
-                        onCanPlay={() => {
-                          setVideoLoading(false);
-                        }}
-                        onError={() => {
-                          setVideoLoading(false);
-                          setVideoError(
-                            "The video could not be played. The video file may use an unsupported format."
-                          );
-                        }}
-                      >
-                        <source
-                          src={videoUrl}
-                          type={
-                            video.contentType ||
-                            "video/mp4"
-                          }
-                        />
-
-                        Your browser does not support
-                        video playback.
-                      </video>
-                    )}
-                </div>
-
-                {/* Title */}
-                <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-
-                  <div>
-                    <h1 className="text-3xl font-bold">
-                      {video.title}
-                    </h1>
-
-                    <p className="mt-2 text-sm text-gray-400">
-                      Uploaded{" "}
-                      {new Date(
-                        video.createdAt
-                      ).toLocaleString()}
+                  {/* Rating summary */}
+                  <section className="rounded-3xl border border-white/10 bg-[#0c0c0c] p-6 sm:p-8">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-500">
+                      Community Rating
                     </p>
-                  </div>
 
-                  <span className="w-fit rounded-lg bg-blue-500/10 px-3 py-2 text-sm text-blue-300">
-                    Age Rating:{" "}
-                    {video.ageRating}
-                  </span>
+                    <div className="mt-6 flex items-end gap-3">
+                      <span className="text-5xl font-black">
+                        {averageRating.toFixed(1)}
+                      </span>
 
-                </div>
+                      <div className="pb-2">
+                        <div className="text-xl tracking-widest text-yellow-400">
+                          ★★★★★
+                        </div>
 
-                {/* Metadata */}
-                <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-
-                  <h2 className="mb-5 text-xl font-semibold">
-                    Video Information
-                  </h2>
-
-                  <div className="grid gap-5 sm:grid-cols-2">
-
-                    <div>
-                      <p className="text-sm text-gray-500">
-                        Publisher
-                      </p>
-
-                      <p className="mt-1 text-gray-200">
-                        {video.publisher}
-                      </p>
+                        <p className="mt-1 text-xs text-gray-600">
+                          {totalRatings}{" "}
+                          {totalRatings === 1
+                            ? "rating"
+                            : "ratings"}
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <p className="text-sm text-gray-500">
-                        Producer
-                      </p>
-
-                      <p className="mt-1 text-gray-200">
-                        {video.producer}
-                      </p>
+                    <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-yellow-400"
+                        style={{
+                          width: `${Math.min(
+                            averageRating * 20,
+                            100
+                          )}%`,
+                        }}
+                      />
                     </div>
 
-                    <div>
-                      <p className="text-sm text-gray-500">
-                        Genre
-                      </p>
-
-                      <p className="mt-1 text-gray-200">
-                        {video.genre}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm text-gray-500">
-                        Age Rating
-                      </p>
-
-                      <p className="mt-1 text-gray-200">
-                        {video.ageRating}
-                      </p>
-                    </div>
-
-                  </div>
-
-                  {video.description && (
-                    <div className="mt-6 border-t border-white/10 pt-5">
-
-                      <p className="text-sm text-gray-500">
-                        Description
-                      </p>
-
-                      <p className="mt-2 leading-7 text-gray-300">
-                        {video.description}
-                      </p>
-
-                    </div>
-                  )}
-
+                    <p className="mt-5 text-sm leading-6 text-gray-500">
+                      Rate this video below and share
+                      your experience with the MediaNest
+                      community.
+                    </p>
+                  </section>
                 </div>
 
                 {/* Comments */}
-                <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-
-                  <div className="flex items-center justify-between">
+                <section className="mt-8 rounded-3xl border border-white/10 bg-[#0c0c0c] p-6 sm:p-8">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <h2 className="text-2xl font-semibold">
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-500">
+                        Community
+                      </p>
+
+                      <h2 className="mt-2 text-2xl font-bold">
                         Comments
                       </h2>
 
                       <p className="mt-1 text-sm text-gray-500">
-                        Share your thoughts about this video.
+                        Share your thoughts about this
+                        video.
                       </p>
                     </div>
 
-                    <span className="rounded-lg bg-blue-500/10 px-3 py-2 text-sm text-blue-300">
+                    <span className="w-fit rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-400">
                       {comments.length}{" "}
                       {comments.length === 1
                         ? "comment"
@@ -674,14 +740,12 @@ export default function WatchVideo() {
                     </span>
                   </div>
 
-                  {/* Add Comment */}
+                  {/* Add comment */}
                   <form
                     onSubmit={handleCommentSubmit}
-                    className="mt-6"
+                    className="mt-7"
                   >
-
                     <div className="grid gap-4 sm:grid-cols-2">
-
                       <input
                         type="text"
                         value={commentName}
@@ -692,11 +756,10 @@ export default function WatchVideo() {
                         }
                         placeholder="Your name"
                         maxLength={100}
-                        className="rounded-xl border border-white/10 bg-[#0d121c] px-4 py-3 text-white outline-none placeholder:text-gray-600 focus:border-blue-500"
+                        className="rounded-2xl border border-white/10 bg-[#151515] px-5 py-4 text-white outline-none transition placeholder:text-gray-700 focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20"
                       />
 
-                      <div />
-
+                      <div className="hidden sm:block" />
                     </div>
 
                     <textarea
@@ -709,147 +772,140 @@ export default function WatchVideo() {
                       placeholder="Write a comment..."
                       maxLength={500}
                       rows={4}
-                      className="mt-4 w-full resize-none rounded-xl border border-white/10 bg-[#0d121c] px-4 py-3 text-white outline-none placeholder:text-gray-600 focus:border-blue-500"
+                      className="mt-4 w-full resize-none rounded-2xl border border-white/10 bg-[#151515] px-5 py-4 text-white outline-none transition placeholder:text-gray-700 focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20"
                     />
 
                     <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-gray-700">
                         Maximum 500 characters
                       </p>
 
                       <button
                         type="submit"
                         disabled={commentSubmitting}
-                        className="rounded-xl bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-xl bg-red-600 px-6 py-3 font-bold transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {commentSubmitting
                           ? "Posting..."
                           : "Post Comment"}
                       </button>
-
                     </div>
-
                   </form>
 
-                  {/* Comment Success */}
                   {commentSuccess && (
-                    <div className="mt-4 rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
+                    <div className="mt-5 rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-400">
                       {commentSuccess}
                     </div>
                   )}
 
-                  {/* Comment Error */}
                   {commentError && (
-                    <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+                    <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
                       {commentError}
                     </div>
                   )}
 
-                  {/* Existing Comments */}
-                  <div className="mt-8 border-t border-white/10 pt-6">
-
-                    <h3 className="mb-5 text-lg font-semibold">
+                  {/* Existing comments */}
+                  <div className="mt-8 border-t border-white/10 pt-7">
+                    <h3 className="text-lg font-bold">
                       Recent Comments
                     </h3>
 
                     {commentsLoading && (
-                      <p className="text-gray-500">
+                      <div className="mt-5 flex items-center gap-3 text-sm text-gray-500">
+                        <div className="h-4 w-4 animate-spin rounded-full border border-white/10 border-t-red-500" />
                         Loading comments...
-                      </p>
+                      </div>
                     )}
 
                     {!commentsLoading &&
                       comments.length === 0 && (
-                        <div className="rounded-xl border border-white/10 bg-[#0d121c] p-6 text-center text-gray-500">
-                          No comments yet. Be the first to comment.
+                        <div className="mt-5 rounded-2xl border border-white/10 bg-[#151515] p-7 text-center">
+                          <div className="text-3xl">
+                            💬
+                          </div>
+
+                          <p className="mt-3 text-sm text-gray-500">
+                            No comments yet.
+                          </p>
+
+                          <p className="mt-1 text-xs text-gray-700">
+                            Be the first person to share
+                            your thoughts.
+                          </p>
                         </div>
                       )}
 
                     {!commentsLoading &&
                       comments.length > 0 && (
-                        <div className="space-y-4">
-
+                        <div className="mt-5 space-y-3">
                           {comments.map((item) => (
                             <div
                               key={item.commentId}
-                              className="rounded-xl border border-white/10 bg-[#0d121c] p-5"
+                              className="rounded-2xl border border-white/10 bg-[#151515] p-5"
                             >
-
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-
                                 <p className="font-semibold text-gray-200">
                                   {item.userName}
                                 </p>
 
-                                <p className="text-xs text-gray-600">
+                                <p className="text-xs text-gray-700">
                                   {new Date(
                                     item.createdAt
                                   ).toLocaleString()}
                                 </p>
-
                               </div>
 
                               <p className="mt-3 leading-7 text-gray-400">
                                 {item.comment}
                               </p>
-
                             </div>
                           ))}
-
                         </div>
                       )}
-
                   </div>
-
                 </section>
 
                 {/* Ratings */}
-                <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-
+                <section className="mt-8 rounded-3xl border border-white/10 bg-[#0c0c0c] p-6 sm:p-8">
+                  <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <h2 className="text-2xl font-semibold">
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-500">
+                        Feedback
+                      </p>
+
+                      <h2 className="mt-2 text-2xl font-bold">
                         Rate This Video
                       </h2>
 
                       <p className="mt-1 text-sm text-gray-500">
-                        Share your rating for this video.
+                        Choose from one to five stars.
                       </p>
                     </div>
 
-                    <div className="text-left sm:text-right">
-
-                      <div className="flex items-center gap-2">
-
-                        <span className="text-3xl font-bold text-yellow-400">
+                    <div className="rounded-2xl border border-white/10 bg-[#151515] px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl font-black">
                           {averageRating.toFixed(1)}
                         </span>
 
-                        <span className="text-yellow-400">
-                          ★
-                        </span>
+                        <div>
+                          <div className="text-lg tracking-widest text-yellow-400">
+                            ★★★★★
+                          </div>
 
+                          <p className="text-xs text-gray-600">
+                            {totalRatings} total
+                          </p>
+                        </div>
                       </div>
-
-                      <p className="text-sm text-gray-500">
-                        {totalRatings}{" "}
-                        {totalRatings === 1
-                          ? "rating"
-                          : "ratings"}
-                      </p>
-
                     </div>
-
                   </div>
 
-                  {/* Rating Form */}
+                  {/* Rating form */}
                   <form
                     onSubmit={handleRatingSubmit}
-                    className="mt-6"
+                    className="mt-7"
                   >
-
                     <input
                       type="text"
                       value={ratingName}
@@ -860,17 +916,15 @@ export default function WatchVideo() {
                       }
                       placeholder="Your name"
                       maxLength={100}
-                      className="w-full rounded-xl border border-white/10 bg-[#0d121c] px-4 py-3 text-white outline-none placeholder:text-gray-600 focus:border-blue-500"
+                      className="w-full rounded-2xl border border-white/10 bg-[#151515] px-5 py-4 text-white outline-none transition placeholder:text-gray-700 focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20"
                     />
 
-                    <div className="mt-5">
-
-                      <p className="mb-3 text-sm text-gray-400">
+                    <div className="mt-6">
+                      <p className="mb-3 text-sm font-medium text-gray-400">
                         Select your rating
                       </p>
 
                       <div className="flex gap-2">
-
                         {[1, 2, 3, 4, 5].map(
                           (star) => (
                             <button
@@ -881,11 +935,11 @@ export default function WatchVideo() {
                                   star
                                 )
                               }
-                              className={`text-4xl transition ${
+                              className={`text-4xl transition-transform hover:scale-110 ${
                                 star <=
                                 selectedRating
                                   ? "text-yellow-400"
-                                  : "text-gray-600 hover:text-yellow-300"
+                                  : "text-gray-700 hover:text-yellow-300"
                               }`}
                               aria-label={`Rate ${star} out of 5`}
                             >
@@ -893,120 +947,133 @@ export default function WatchVideo() {
                             </button>
                           )
                         )}
-
                       </div>
 
                       {selectedRating > 0 && (
-                        <p className="mt-2 text-sm text-gray-500">
+                        <p className="mt-2 text-sm text-gray-600">
                           You selected{" "}
                           {selectedRating} out of 5
                         </p>
                       )}
-
                     </div>
 
                     <button
                       type="submit"
                       disabled={ratingSubmitting}
-                      className="mt-5 rounded-xl bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="mt-6 rounded-xl bg-red-600 px-6 py-3 font-bold transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {ratingSubmitting
                         ? "Submitting..."
                         : "Submit Rating"}
                     </button>
-
                   </form>
 
-                  {/* Rating Success */}
                   {ratingSuccess && (
-                    <div className="mt-4 rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
+                    <div className="mt-5 rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-400">
                       {ratingSuccess}
                     </div>
                   )}
 
-                  {/* Rating Error */}
                   {ratingError && (
-                    <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+                    <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
                       {ratingError}
                     </div>
                   )}
 
-                  {/* Existing Ratings */}
-                  <div className="mt-8 border-t border-white/10 pt-6">
-
-                    <h3 className="mb-5 text-lg font-semibold">
+                  {/* Existing ratings */}
+                  <div className="mt-8 border-t border-white/10 pt-7">
+                    <h3 className="text-lg font-bold">
                       Recent Ratings
                     </h3>
 
                     {ratingsLoading && (
-                      <p className="text-gray-500">
+                      <div className="mt-5 flex items-center gap-3 text-sm text-gray-500">
+                        <div className="h-4 w-4 animate-spin rounded-full border border-white/10 border-t-red-500" />
                         Loading ratings...
-                      </p>
+                      </div>
                     )}
 
                     {!ratingsLoading &&
                       ratings.length === 0 && (
-                        <div className="rounded-xl border border-white/10 bg-[#0d121c] p-6 text-center text-gray-500">
-                          No ratings yet. Be the first to rate this video.
+                        <div className="mt-5 rounded-2xl border border-white/10 bg-[#151515] p-7 text-center">
+                          <div className="text-3xl">
+                            ★
+                          </div>
+
+                          <p className="mt-3 text-sm text-gray-500">
+                            No ratings yet.
+                          </p>
+
+                          <p className="mt-1 text-xs text-gray-700">
+                            Be the first to rate this
+                            video.
+                          </p>
                         </div>
                       )}
 
                     {!ratingsLoading &&
                       ratings.length > 0 && (
-                        <div className="space-y-4">
-
+                        <div className="mt-5 space-y-3">
                           {ratings.map((item) => (
                             <div
                               key={item.ratingId}
-                              className="rounded-xl border border-white/10 bg-[#0d121c] p-5"
+                              className="rounded-2xl border border-white/10 bg-[#151515] p-5"
                             >
-
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-
                                 <p className="font-semibold text-gray-200">
                                   {item.userName}
                                 </p>
 
-                                <p className="text-xs text-gray-600">
+                                <p className="text-xs text-gray-700">
                                   {new Date(
                                     item.createdAt
                                   ).toLocaleString()}
                                 </p>
-
                               </div>
 
-                              <div className="mt-3 text-xl text-yellow-400">
-
-                                {"★".repeat(
-                                  Number(item.rating)
-                                )}
+                              <div className="mt-3 text-xl tracking-widest">
+                                <span className="text-yellow-400">
+                                  {"★".repeat(
+                                    Number(
+                                      item.rating
+                                    )
+                                  )}
+                                </span>
 
                                 <span className="text-gray-700">
-
                                   {"★".repeat(
                                     5 -
                                       Number(
                                         item.rating
                                       )
                                   )}
-
                                 </span>
-
                               </div>
-
                             </div>
                           ))}
-
                         </div>
                       )}
-
                   </div>
-
                 </section>
 
-              </div>
-            )}
+                {/* Bottom navigation */}
+                <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-7 sm:flex-row">
+                  <Link
+                    href="/latest"
+                    className="text-sm font-medium text-gray-500 transition hover:text-white"
+                  >
+                    ← Continue browsing videos
+                  </Link>
 
+                  <Link
+                    href="/"
+                    className="text-sm font-medium text-gray-600 transition hover:text-red-400"
+                  >
+                    MediaNest
+                  </Link>
+                </div>
+              </>
+            )}
         </div>
       </main>
     </>
