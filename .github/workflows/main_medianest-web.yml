@@ -1,13 +1,20 @@
-﻿# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+﻿# Docs for the Azure Web Apps Deploy action:
+# https://github.com/Azure/webapps-deploy
+#
+# GitHub Actions for Azure:
+# https://github.com/Azure/actions
 
-name: Build and deploy Node.js app to Azure Web App - medianest-web
+name: Build and deploy MediaNest to Azure Web App
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: medianest-web
+  NODE_VERSION: '22.x'
 
 jobs:
   build:
@@ -22,26 +29,48 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: medianest/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install production dependencies
+        run: npm ci --omit=dev
 
       - name: Build Next.js application
         run: npm run build
 
-      - name: Upload artifact for deployment
+      - name: Verify production application
+        run: |
+          test -f package.json
+          test -f .next/BUILD_ID
+          test -x node_modules/.bin/next
+          echo "MediaNest production build verified."
+          echo "Next.js executable found."
+          echo "Build ID:"
+          cat .next/BUILD_ID
+
+      - name: Upload application artifact
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
-          path: medianest
+          name: medianest-web-app
+          path: |
+            medianest/.next
+            medianest/node_modules
+            medianest/public
+            medianest/pages
+            medianest/lib
+            medianest/types
+            medianest/package.json
+            medianest/package-lock.json
+            medianest/next.config.js
+            medianest/next-env.d.ts
+            medianest/tsconfig.json
+          if-no-files-found: error
 
   deploy:
     runs-on: ubuntu-latest
@@ -52,11 +81,19 @@ jobs:
       contents: read
 
     steps:
-      - name: Download artifact from build job
+      - name: Download application artifact
         uses: actions/download-artifact@v4
         with:
-          name: node-app
-          path: medianest
+          name: medianest-web-app
+          path: ./medianest
+
+      - name: Verify deployment package
+        run: |
+          echo "Checking deployment package..."
+          test -f ./medianest/package.json
+          test -f ./medianest/.next/BUILD_ID
+          test -x ./medianest/node_modules/.bin/next
+          echo "Deployment package verified."
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -65,10 +102,18 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_91A8C3A10B9E4688862AE87B71897809 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_744E97D579CE4B27A4CBC61728F87233 }}
 
+      - name: Configure Azure App Service startup
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az webapp config set \
+              --resource-group MediaNest-RG \
+              --name medianest-web \
+              --startup-file "npm start"
+
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'medianest-web'
-          slot-name: 'Production'
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          slot-name: Production
           package: ./medianest
