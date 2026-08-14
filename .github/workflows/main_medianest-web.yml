@@ -30,7 +30,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22.x"
+          node-version: '22.x'
           cache: npm
           cache-dependency-path: medianest/package-lock.json
 
@@ -41,7 +41,6 @@ jobs:
 
       - name: Verify build dependencies
         run: |
-          npx next --version
           npx eslint --version
           npx tsc --version
 
@@ -50,18 +49,44 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: Prepare standalone deployment package
+      - name: Prepare standalone deployment
         run: |
-          cp -r .next/static .next/standalone/.next/
-          if [ -d public ]; then
-            cp -r public .next/standalone/
+          if [ ! -f ".next/standalone/server.js" ]; then
+            echo "ERROR: .next/standalone/server.js was not created."
+            exit 1
           fi
 
-      - name: Upload standalone application
+          rm -rf deploy
+          mkdir -p deploy
+
+          cp -r .next/standalone/. deploy/
+
+          if [ -d "public" ]; then
+            cp -r public deploy/public
+          fi
+
+          mkdir -p deploy/.next
+          cp -r .next/static deploy/.next/static
+
+          if [ ! -f "deploy/server.js" ]; then
+            echo "ERROR: deploy/server.js was not created."
+            exit 1
+          fi
+
+          if [ ! -d "deploy/.next" ]; then
+            echo "ERROR: deploy/.next was not created."
+            exit 1
+          fi
+
+          echo "Standalone deployment contents:"
+          find deploy -maxdepth 2 -type f | head -100
+
+      - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
         with:
-          name: medianest-standalone
-          path: medianest/.next/standalone
+          name: node-app
+          path: medianest/deploy
+          include-hidden-files: true
 
   deploy:
     runs-on: ubuntu-latest
@@ -72,11 +97,28 @@ jobs:
       contents: read
 
     steps:
-      - name: Download standalone application
+      - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: medianest-standalone
+          name: node-app
           path: medianest
+
+      - name: Verify deployment package
+        run: |
+          echo "Deployment package contents:"
+          find medianest -maxdepth 3 -type f | head -150
+
+          if [ ! -f "medianest/server.js" ]; then
+            echo "ERROR: server.js is missing."
+            exit 1
+          fi
+
+          if [ ! -d "medianest/.next" ]; then
+            echo "ERROR: .next directory is missing."
+            exit 1
+          fi
+
+          echo "server.js and .next are present."
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -85,10 +127,10 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_91A8C3A10B9E4688862AE87B71897809 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_744E97D579CE4B27A4CBC61728F87233 }}
 
-      - name: Deploy standalone application to Azure
+      - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: "medianest-web"
-          slot-name: "Production"
+          app-name: 'medianest-web'
+          slot-name: 'Production'
           package: ./medianest
