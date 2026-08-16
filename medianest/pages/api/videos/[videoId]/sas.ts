@@ -20,6 +20,8 @@ type VideoEntity = {
   rowKey: string;
   videoId?: string;
   blobName?: string;
+  convertedBlobName?: string;
+  status?: string;
   title?: string;
 };
 
@@ -50,10 +52,9 @@ export default async function handler(
   }
 
   try {
-    const tableClient =
-      await ensureTable(
-        STORAGE_CONFIG.videosTable
-      );
+    const tableClient = await ensureTable(
+      STORAGE_CONFIG.videosTable
+    );
 
     const video =
       await tableClient.getEntity<VideoEntity>(
@@ -61,7 +62,23 @@ export default async function handler(
         videoId
       );
 
-    if (!video.blobName) {
+    /*
+     * For processed videos, always use the
+     * FFmpeg-converted MP4.
+     *
+     * The converted file is encoded as:
+     * H.264 video + AAC audio
+     * with +faststart enabled.
+     *
+     * This is the browser-friendly version.
+     */
+    const playbackBlobName =
+      video.status === "PROCESSED" &&
+      video.convertedBlobName
+        ? video.convertedBlobName
+        : video.blobName;
+
+    if (!playbackBlobName) {
       return res.status(404).json({
         success: false,
         error: "Video file was not found.",
@@ -70,7 +87,7 @@ export default async function handler(
 
     const videoUrl =
       generateVideoSasUrl(
-        video.blobName
+        playbackBlobName
       );
 
     return res.status(200).json({
