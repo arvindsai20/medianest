@@ -49,6 +49,9 @@ export const STORAGE_CONFIG = {
   ratingsTable:
     process.env.AZURE_RATINGS_TABLE || "Ratings",
 
+  likesTable:
+    process.env.AZURE_LIKES_TABLE || "Likes",
+
   videoQueue:
     process.env.AZURE_VIDEO_QUEUE || "video-processing",
 };

@@ -6,6 +6,7 @@ import {
 } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { signOut, useSession } from "next-auth/react";
 
 type Video = {
   videoId: string;
@@ -42,6 +43,8 @@ type Rating = {
 type PanelType = "comments" | "ratings" | null;
 
 export default function LatestVideos() {
+  const { data: session, status: sessionStatus } = useSession();
+
   const [videos, setVideos] = useState<Video[]>([]);
   const [videoUrls, setVideoUrls] = useState<
     Record<string, string>
@@ -57,6 +60,15 @@ export default function LatestVideos() {
     useState(0);
 
   const [isMuted, setIsMuted] =
+    useState(false);
+
+  const [likeCount, setLikeCount] =
+    useState(0);
+
+  const [isLiked, setIsLiked] =
+    useState(false);
+
+  const [likeLoading, setLikeLoading] =
     useState(false);
 
   const videoRefs = useRef<
@@ -878,6 +890,110 @@ export default function LatestVideos() {
     );
   }
 
+  /*
+   * Load like status and count for the active video.
+   */
+  useEffect(() => {
+    const video = videos[activeIndex];
+
+    if (!video) {
+      setLikeCount(0);
+      setIsLiked(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadLikes() {
+      try {
+        const response = await fetch(
+          `/api/likes?videoId=${encodeURIComponent(
+            video.videoId
+          )}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(
+            data.message || "Failed to load likes."
+          );
+        }
+
+        if (!cancelled) {
+          setLikeCount(Number(data.totalLikes || 0));
+          setIsLiked(Boolean(data.liked));
+        }
+      } catch (error) {
+        console.error("Like loading error:", error);
+        if (!cancelled) {
+          setLikeCount(0);
+          setIsLiked(false);
+        }
+      }
+    }
+
+    loadLikes();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeIndex, videos]);
+
+  /*
+   * Like or unlike the active video.
+   */
+  async function toggleLike() {
+    const video = videos[activeIndex];
+
+    if (!video || likeLoading) {
+      return;
+    }
+
+    const wasLiked = isLiked;
+
+    try {
+      setLikeLoading(true);
+
+      const response = await fetch(
+        `/api/likes?videoId=${encodeURIComponent(
+          video.videoId
+        )}`,
+        {
+          method: wasLiked ? "DELETE" : "POST",
+          headers: wasLiked
+            ? undefined
+            : { "Content-Type": "application/json" },
+          body: wasLiked
+            ? undefined
+            : JSON.stringify({ videoId: video.videoId }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        window.location.href = `/login?callbackUrl=${encodeURIComponent(
+          "/latest"
+        )}`;
+        return;
+      }
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to update like.");
+      }
+
+      setIsLiked(Boolean(data.liked));
+      setLikeCount((current) =>
+        wasLiked ? Math.max(0, current - 1) : current + 1
+      );
+    } catch (error) {
+      console.error("Like update error:", error);
+    } finally {
+      setLikeLoading(false);
+    }
+  }
+
   const activeVideo =
     videos[activeIndex];
 
@@ -942,19 +1058,51 @@ export default function LatestVideos() {
 
             {/* Authentication */}
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <Link
-                href="/login"
-                className="hidden rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-red-500/60 hover:bg-red-500/10 sm:block sm:px-5"
-              >
-                Creator Login
-              </Link>
+              {sessionStatus !== "loading" &&
+                !session && (
+                  <>
+                    <Link
+                      href="/login?role=creator"
+                      className="hidden rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-red-500/60 hover:bg-red-500/10 sm:block sm:px-5"
+                    >
+                      Creator Login
+                    </Link>
 
-              <Link
-                href="/register"
-                className="rounded-full bg-red-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition hover:bg-red-400 sm:px-5"
-              >
-                Register
-              </Link>
+                    <Link
+                      href="/register"
+                      className="rounded-full bg-red-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition hover:bg-red-400 sm:px-5"
+                    >
+                      Register
+                    </Link>
+                  </>
+                )}
+
+              {sessionStatus !== "loading" &&
+                session && (
+                  <>
+                    {session.user?.role ===
+                      "CREATOR" && (
+                      <Link
+                        href="/creator"
+                        className="hidden rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-red-500/60 hover:bg-red-500/10 sm:block sm:px-5"
+                      >
+                        Creator Dashboard
+                      </Link>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        signOut({
+                          callbackUrl: "/",
+                        })
+                      }
+                      className="rounded-full bg-red-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition hover:bg-red-400 sm:px-5"
+                    >
+                      Sign Out
+                    </button>
+                  </>
+                )}
             </div>
           </div>
         </header>
@@ -1089,51 +1237,54 @@ export default function LatestVideos() {
                             {index ===
                               activeIndex && (
                               <div className="absolute bottom-44 right-5 z-20 flex flex-col items-center gap-4">
-                                {/* Sound */}
+                                {/* Like */}
                                 <button
                                   type="button"
-                                  onClick={
-                                    toggleSound
-                                  }
-                                  className="flex h-12 w-12 items-center justify-center rounded-full border border-white/25 bg-black/60 text-xl backdrop-blur-md transition hover:scale-105 hover:bg-black/80"
-                                  aria-label={
-                                    isMuted
-                                      ? "Turn sound on"
-                                      : "Mute video"
-                                  }
+                                  onClick={toggleLike}
+                                  disabled={likeLoading}
+                                  className={`relative flex h-12 w-12 items-center justify-center rounded-full border border-white/25 bg-black/60 text-2xl backdrop-blur-md transition hover:scale-105 hover:bg-black/80 disabled:cursor-wait disabled:opacity-70 ${
+                                    isLiked ? "text-red-500" : "text-white"
+                                  }`}
+                                  aria-label={isLiked ? "Unlike video" : "Like video"}
+                                  title={isLiked ? "Unlike video" : "Like video"}
                                 >
-                                  {isMuted
-                                    ? "🔇"
-                                    : "🔊"}
+                                  {isLiked ? "♥" : "♡"}
+                                  {likeCount > 0 && (
+                                    <span className="absolute -right-2 -bottom-2 min-w-5 rounded-full bg-white px-1.5 py-0.5 text-[10px] font-bold text-black">
+                                      {likeCount}
+                                    </span>
+                                  )}
                                 </button>
 
                                 {/* Comments */}
                                 <button
                                   type="button"
-                                  onClick={
-                                    openComments
-                                  }
+                                  onClick={openComments}
                                   className="relative flex h-12 w-12 items-center justify-center rounded-full border border-white/25 bg-black/60 text-xl backdrop-blur-md transition hover:scale-105 hover:bg-black/80"
                                   aria-label="Comments"
                                 >
                                   💬
-
-                                  {comments.length >
-                                    0 && (
+                                  {comments.length > 0 && (
                                     <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-white px-1 text-[10px] font-bold text-black">
-                                      {
-                                        comments.length
-                                      }
+                                      {comments.length}
                                     </span>
                                   )}
+                                </button>
+
+                                {/* Sound */}
+                                <button
+                                  type="button"
+                                  onClick={toggleSound}
+                                  className="flex h-12 w-12 items-center justify-center rounded-full border border-white/25 bg-black/60 text-xl backdrop-blur-md transition hover:scale-105 hover:bg-black/80"
+                                  aria-label={isMuted ? "Turn sound on" : "Mute video"}
+                                >
+                                  {isMuted ? "🔇" : "🔊"}
                                 </button>
 
                                 {/* Rating */}
                                 <button
                                   type="button"
-                                  onClick={
-                                    openRatings
-                                  }
+                                  onClick={openRatings}
                                   className="flex h-12 w-12 items-center justify-center rounded-full border border-white/25 bg-black/60 text-xl backdrop-blur-md transition hover:scale-105 hover:bg-black/80"
                                   aria-label="Rate video"
                                 >

@@ -1,10 +1,16 @@
 import { FormEvent, useState } from "react";
-import { signIn, getSession } from "next-auth/react";
+import {
+  signIn,
+  getSession,
+} from "next-auth/react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
+
+  const isCreatorLogin =
+    router.query.role === "creator";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,13 +42,12 @@ export default function LoginPage() {
         return;
       }
 
-      /*
-       * Get the newly authenticated session.
-       * The session contains the user's role.
-       */
       const session = await getSession();
 
-      console.log("Authenticated session:", session);
+      console.log(
+        "Authenticated session:",
+        session
+      );
 
       if (!session?.user) {
         setError(
@@ -53,6 +58,9 @@ export default function LoginPage() {
       }
 
       /*
+       * Always use the actual role stored in the
+       * authenticated session.
+       *
        * Creator → Creator Dashboard
        * Consumer → Latest Videos
        */
@@ -62,7 +70,10 @@ export default function LoginPage() {
         await router.push("/");
       }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error(
+        "Login error:",
+        error
+      );
 
       setError(
         "Unable to sign in. Please try again."
@@ -84,8 +95,12 @@ export default function LoginPage() {
             href="/"
             className="text-3xl font-black tracking-tight"
           >
-            <span className="text-white">Media</span>
-            <span className="text-red-500">Nest</span>
+            <span className="text-white">
+              Media
+            </span>
+            <span className="text-red-500">
+              Nest
+            </span>
           </Link>
 
           <Link
@@ -115,16 +130,40 @@ export default function LoginPage() {
                 strokeWidth="1.8"
                 viewBox="0 0 24 24"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4.5 20a7.5 7.5 0 0 1 15 0M19 8v5m2.5-2.5h-5"
-                />
+                {isCreatorLogin ? (
+                  <>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4.5 20a7.5 7.5 0 0 1 15 0"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 8v5m2.5-2.5h-5"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 11a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 21a7 7 0 0 1 14 0"
+                    />
+                  </>
+                )}
               </svg>
             </div>
 
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-400">
-              Creator Access
+              {isCreatorLogin
+                ? "Creator Access"
+                : "Consumer Access"}
             </p>
 
             <h1 className="mt-3 text-4xl font-black tracking-tight">
@@ -178,7 +217,9 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(event) =>
-                      setEmail(event.target.value)
+                      setEmail(
+                        event.target.value
+                      )
                     }
                     placeholder="you@example.com"
                     required
@@ -225,7 +266,9 @@ export default function LoginPage() {
                     type="password"
                     value={password}
                     onChange={(event) =>
-                      setPassword(event.target.value)
+                      setPassword(
+                        event.target.value
+                      )
                     }
                     placeholder="Enter your password"
                     required
@@ -252,24 +295,54 @@ export default function LoginPage() {
               >
                 {loading
                   ? "Signing in..."
-                  : "Creator Login"}
+                  : isCreatorLogin
+                    ? "Creator Login"
+                    : "Consumer Login"}
               </button>
             </form>
 
             {/* Register */}
 
-            <div className="mt-7 border-t border-white/10 pt-6 text-center">
-              <p className="text-sm text-gray-500">
-                Don't have a MediaNest account?
-              </p>
+            {!isCreatorLogin && (
+              <div className="mt-7 border-t border-white/10 pt-6 text-center">
+                <p className="text-sm text-gray-500">
+                  Don't have a MediaNest account?
+                </p>
 
-              <Link
-                href="/register"
-                className="mt-2 inline-block text-sm font-semibold text-red-400 transition hover:text-red-300"
-              >
-                Create an account
-              </Link>
-            </div>
+                <Link
+                  href="/register"
+                  className="mt-2 inline-block text-sm font-semibold text-red-400 transition hover:text-red-300"
+                >
+                  Create an account
+                </Link>
+              </div>
+            )}
+
+            {/* Creator login switch */}
+
+            {isCreatorLogin ? (
+              <div className="mt-7 border-t border-white/10 pt-6 text-center">
+                <p className="text-sm text-gray-500">
+                  Looking to watch videos?
+                </p>
+
+                <Link
+                  href="/login"
+                  className="mt-2 inline-block text-sm font-semibold text-red-400 transition hover:text-red-300"
+                >
+                  Consumer Login
+                </Link>
+              </div>
+            ) : (
+              <div className="mt-5 text-center">
+                <Link
+                  href="/login?role=creator"
+                  className="text-xs font-semibold text-gray-600 transition hover:text-gray-400"
+                >
+                  Creator Login
+                </Link>
+              </div>
+            )}
           </div>
 
           <p className="mt-6 text-center text-xs text-gray-700">

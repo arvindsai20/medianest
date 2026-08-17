@@ -8,6 +8,7 @@ import {
 import Link from "next/link";
 import { GetServerSideProps } from "next";
 import { getServerSession } from "next-auth";
+import { signOut } from "next-auth/react";
 
 import { authOptions } from "../api/auth/[...nextauth]";
 
@@ -781,6 +782,18 @@ export default function CreatorDashboard({
                 className="rounded-full bg-red-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-red-400 sm:px-5 sm:py-2.5"
               >
                 + Create
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  signOut({
+                    callbackUrl: "/",
+                  })
+                }
+                className="rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-white transition hover:border-red-500/50 hover:bg-red-500/10 sm:px-5 sm:py-2.5"
+              >
+                Sign Out
               </button>
             </div>
           </div>
