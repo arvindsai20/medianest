@@ -1,5 +1,6 @@
 import {
   BlobSASPermissions,
+  SASProtocol,
   generateBlobSASQueryParameters,
   StorageSharedKeyCredential,
 } from "@azure/storage-blob";
@@ -57,7 +58,7 @@ export function generateVideoSasUrl(
     getConnectionStringValue(
       connectionString,
       "BlobEndpoint"
-    );
+    ).replace(/\/+$/, "");
 
   const credential =
     new StorageSharedKeyCredential(
@@ -69,13 +70,13 @@ export function generateVideoSasUrl(
     process.env.AZURE_BLOB_CONTAINER ||
     "videos";
 
-  // Allow a small clock difference between
-  // the browser, Next.js and Azurite.
+  const isHttps =
+    blobEndpoint.toLowerCase().startsWith("https://");
+
   const startsOn = new Date(
     Date.now() - 5 * 60 * 1000
   );
 
-  // SAS remains valid for one hour.
   const expiresOn = new Date(
     Date.now() + 60 * 60 * 1000
   );
@@ -89,6 +90,12 @@ export function generateVideoSasUrl(
           BlobSASPermissions.parse("r"),
         startsOn,
         expiresOn,
+        protocol: isHttps
+          ? SASProtocol.Https
+          : SASProtocol.HttpsAndHttp,
+        contentType: "video/mp4",
+        contentDisposition: "inline",
+        cacheControl: "public, max-age=3600",
       },
       credential
     ).toString();
