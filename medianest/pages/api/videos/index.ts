@@ -37,8 +37,35 @@ type Video = {
   blobName: string;
   blobUrl: string;
 
+  convertedBlobName?: string;
+  convertedBlobUrl?: string;
+
   originalFileName?: string;
   contentType?: string;
+
+  status: string;
+
+  createdAt: string;
+  processedAt?: string;
+  processingError?: string;
+  transcript?: string;
+  transcriptLanguage?: string;
+
+  updatedAt?: string;
+};
+
+type PublicVideo = {
+  videoId: string;
+
+  creatorName?: string;
+
+  title: string;
+  publisher: string;
+  producer: string;
+  genre: string;
+  ageRating: string;
+
+  description?: string;
 
   status: string;
 
@@ -47,7 +74,7 @@ type Video = {
 
 type ResponseData = {
   success: boolean;
-  videos?: Video[];
+  videos?: Array<Video | PublicVideo>;
   message?: string;
   error?: string;
 };
@@ -90,6 +117,9 @@ export default async function handler(
 
     /*
      * Creator management view.
+     *
+     * This endpoint is protected by authentication
+     * and role-based access control.
      */
     if (creatorOnly) {
       const session =
@@ -124,7 +154,67 @@ export default async function handler(
             video.creatorId ===
             session.user.id
         );
+
+      /*
+       * Search within the creator's own videos.
+       */
+      if (searchQuery) {
+        filteredVideos =
+          filteredVideos.filter(
+            (video) => {
+              const searchableText = [
+                video.title,
+                video.publisher,
+                video.producer,
+                video.genre,
+                video.description,
+                video.creatorName,
+              ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
+
+              return searchableText.includes(
+                searchQuery
+              );
+            }
+          );
+      }
+
+      /*
+       * Newest first.
+       */
+      filteredVideos.sort(
+        (a, b) =>
+          new Date(
+            b.createdAt
+          ).getTime() -
+          new Date(
+            a.createdAt
+          ).getTime()
+      );
+
+      /*
+       * Creator-only response can contain
+       * the creator's own management data.
+       */
+      return res.status(200).json({
+        success: true,
+        videos: filteredVideos,
+      });
     }
+
+    /*
+     * Public consumer feed/search.
+     *
+     * Only processed videos are exposed.
+     */
+    filteredVideos =
+      filteredVideos.filter(
+        (video) =>
+          video.status ===
+          "PROCESSED"
+      );
 
     /*
      * Search.
@@ -165,9 +255,55 @@ export default async function handler(
         ).getTime()
     );
 
+    /*
+     * IMPORTANT:
+     *
+     * Never expose Azure Blob URLs, blob names,
+     * creator IDs, original filenames, processing
+     * errors, transcripts or other internal storage
+     * information through the public API.
+     *
+     * Secure playback URLs are generated separately
+     * by /api/videos/[videoId]/sas.
+     */
+    const publicVideos: PublicVideo[] =
+      filteredVideos.map(
+        (video) => ({
+          videoId:
+            video.videoId,
+
+          creatorName:
+            video.creatorName,
+
+          title:
+            video.title,
+
+          publisher:
+            video.publisher,
+
+          producer:
+            video.producer,
+
+          genre:
+            video.genre,
+
+          ageRating:
+            video.ageRating,
+
+          description:
+            video.description,
+
+          status:
+            video.status,
+
+          createdAt:
+            video.createdAt,
+        })
+      );
+
     return res.status(200).json({
       success: true,
-      videos: filteredVideos,
+      videos: publicVideos,
     });
   } catch (error) {
     console.error(
