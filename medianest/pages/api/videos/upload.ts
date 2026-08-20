@@ -20,12 +20,8 @@ import {
 } from "../../../lib/azure/queue";
 
 import {
-  insertEntity,
-} from "../../../lib/azure/tables";
-
-import {
-  STORAGE_CONFIG,
-} from "../../../lib/azure/client";
+  getVideosContainer,
+} from "../../../lib/azure/cosmos";
 
 import {
   authOptions,
@@ -207,6 +203,10 @@ export default async function handler(
         videoFile.filepath
       );
 
+    /*
+     * Upload the actual video file
+     * to Azure Blob Storage.
+     */
     const blobUrl =
       await uploadVideo(
         blobName,
@@ -215,9 +215,15 @@ export default async function handler(
           "video/mp4"
       );
 
+    /*
+     * Video metadata is now stored in
+     * Azure Cosmos DB.
+     *
+     * The Videos container uses /creatorId
+     * as its partition key.
+     */
     const videoEntity = {
-      partitionKey: "VIDEO",
-      rowKey: videoId,
+      id: videoId,
 
       videoId,
 
@@ -257,11 +263,18 @@ export default async function handler(
         new Date().toISOString(),
     };
 
-    await insertEntity(
-      STORAGE_CONFIG.videosTable,
+    const container =
+      getVideosContainer();
+
+    await container.items.create(
       videoEntity
     );
 
+    /*
+     * Queue the video for asynchronous
+     * FFmpeg conversion and speech
+     * recognition.
+     */
     await addVideoProcessingJob(
       videoId,
       blobName

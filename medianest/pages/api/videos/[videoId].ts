@@ -1,11 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { ensureTable } from "../../../lib/azure/tables";
-import { STORAGE_CONFIG } from "../../../lib/azure/client";
+import { getVideosContainer } from "../../../lib/azure/cosmos";
 
 type Video = {
-  partitionKey: string;
-  rowKey: string;
+  id: string;
   videoId: string;
+  creatorId: string;
+  creatorName?: string;
   title: string;
   publisher: string;
   producer: string;
@@ -18,6 +18,12 @@ type Video = {
   contentType?: string;
   status: string;
   createdAt: string;
+  convertedBlobName?: string;
+  convertedBlobUrl?: string;
+  transcript?: string;
+  transcriptLanguage?: string;
+  processedAt?: string;
+  processingError?: string;
 };
 
 type ResponseData = {
@@ -48,28 +54,36 @@ export default async function handler(
       });
     }
 
-    const tableClient = await ensureTable(
-      STORAGE_CONFIG.videosTable
-    );
+    const container = getVideosContainer();
 
-    const video = await tableClient.getEntity<Video>(
-      "VIDEO",
-      videoId
-    );
+    const { resources } = await container.items
+      .query<Video>({
+        query:
+          "SELECT TOP 1 * FROM c WHERE c.videoId = @videoId",
+        parameters: [
+          {
+            name: "@videoId",
+            value: videoId,
+          },
+        ],
+      })
+      .fetchAll();
 
-    return res.status(200).json({
-      success: true,
-      video: video as Video,
-    });
-  } catch (error: any) {
-    console.error("Fetch video error:", error);
+    const video = resources[0];
 
-    if (error?.statusCode === 404) {
+    if (!video) {
       return res.status(404).json({
         success: false,
         message: "Video not found.",
       });
     }
+
+    return res.status(200).json({
+      success: true,
+      video,
+    });
+  } catch (error: unknown) {
+    console.error("Fetch video error:", error);
 
     return res.status(500).json({
       success: false,

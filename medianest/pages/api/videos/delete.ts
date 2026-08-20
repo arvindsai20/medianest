@@ -6,12 +6,8 @@ import type {
 import { getServerSession } from "next-auth";
 
 import {
-  ensureTable,
-} from "../../../lib/azure/tables";
-
-import {
-  STORAGE_CONFIG,
-} from "../../../lib/azure/client";
+  getVideosContainer,
+} from "../../../lib/azure/cosmos";
 
 import {
   deleteVideo,
@@ -25,6 +21,42 @@ type ResponseData = {
   success: boolean;
   message: string;
   error?: string;
+};
+
+type Video = {
+  id: string;
+
+  videoId: string;
+
+  creatorId: string;
+  creatorName?: string;
+
+  title: string;
+  publisher: string;
+  producer: string;
+  genre: string;
+  ageRating: string;
+
+  description?: string;
+
+  blobName: string;
+  blobUrl: string;
+
+  convertedBlobName?: string;
+  convertedBlobUrl?: string;
+
+  originalFileName?: string;
+  contentType?: string;
+
+  status: string;
+
+  createdAt: string;
+  processedAt?: string;
+  processingError?: string;
+  transcript?: string;
+  transcriptLanguage?: string;
+
+  updatedAt?: string;
 };
 
 export default async function handler(
@@ -79,21 +111,39 @@ export default async function handler(
       });
     }
 
-    const tableClient =
-      await ensureTable(
-        STORAGE_CONFIG.videosTable
-      );
+    const container =
+      getVideosContainer();
 
-    let video: any;
+    let video: Video;
 
+    /*
+     * Read the video from the authenticated
+     * creator's Cosmos DB partition.
+     */
     try {
-      video =
-        await tableClient.getEntity(
-          "VIDEO",
-          videoId
-        );
+      const {
+        resource,
+      } = await container
+        .item(
+          videoId,
+          session.user.id
+        )
+        .read<Video>();
+
+      if (!resource) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Video not found.",
+        });
+      }
+
+      video = resource;
     } catch (error: any) {
-      if (error?.statusCode === 404) {
+      if (
+        error?.code === 404 ||
+        error?.statusCode === 404
+      ) {
         return res.status(404).json({
           success: false,
           message:
@@ -106,6 +156,11 @@ export default async function handler(
 
     /*
      * Ownership check.
+     *
+     * The partition-key read already targets
+     * the authenticated creator, but this
+     * explicit check provides an additional
+     * authorization safeguard.
      */
     if (
       video.creatorId !==
@@ -119,7 +174,7 @@ export default async function handler(
     }
 
     /*
-     * Delete the video from
+     * Delete the original video from
      * Azure Blob Storage.
      */
     if (video.blobName) {
@@ -129,13 +184,29 @@ export default async function handler(
     }
 
     /*
-     * Delete metadata from
-     * Azure Table Storage.
+     * Delete the converted video as well
+     * when a processed version exists.
      */
-    await tableClient.deleteEntity(
-      "VIDEO",
-      videoId
-    );
+    if (
+      video.convertedBlobName &&
+      video.convertedBlobName !==
+        video.blobName
+    ) {
+      await deleteVideo(
+        video.convertedBlobName
+      );
+    }
+
+    /*
+     * Delete video metadata from
+     * Azure Cosmos DB.
+     */
+    await container
+      .item(
+        videoId,
+        session.user.id
+      )
+      .delete();
 
     return res.status(200).json({
       success: true,

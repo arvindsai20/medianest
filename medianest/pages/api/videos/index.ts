@@ -5,21 +5,14 @@ import type {
 
 import { getServerSession } from "next-auth";
 
-import {
-  ensureTable,
-} from "../../../lib/azure/tables";
-
-import {
-  STORAGE_CONFIG,
-} from "../../../lib/azure/client";
+import { getVideosContainer } from "../../../lib/azure/cosmos";
 
 import {
   authOptions,
 } from "../auth/[...nextauth]";
 
 type Video = {
-  partitionKey: string;
-  rowKey: string;
+  id: string;
 
   videoId: string;
 
@@ -91,19 +84,7 @@ export default async function handler(
   }
 
   try {
-    const tableClient =
-      await ensureTable(
-        STORAGE_CONFIG.videosTable
-      );
-
-    const videos: Video[] = [];
-
-    const entities =
-      tableClient.listEntities<Video>();
-
-    for await (const entity of entities) {
-      videos.push(entity as Video);
-    }
+    const container = getVideosContainer();
 
     const searchQuery =
       typeof req.query.q === "string"
@@ -113,13 +94,11 @@ export default async function handler(
     const creatorOnly =
       req.query.creatorOnly === "true";
 
-    let filteredVideos = videos;
-
     /*
      * Creator management view.
      *
-     * This endpoint is protected by authentication
-     * and role-based access control.
+     * Authentication and role-based access
+     * control are required.
      */
     if (creatorOnly) {
       const session =
@@ -132,14 +111,12 @@ export default async function handler(
       if (!session?.user) {
         return res.status(401).json({
           success: false,
-          message:
-            "You must be logged in.",
+          message: "You must be logged in.",
         });
       }
 
       if (
-        session.user.role !==
-        "CREATOR"
+        session.user.role !== "CREATOR"
       ) {
         return res.status(403).json({
           success: false,
@@ -148,12 +125,28 @@ export default async function handler(
         });
       }
 
-      filteredVideos =
-        videos.filter(
-          (video) =>
-            video.creatorId ===
-            session.user.id
-        );
+      /*
+       * Cosmos DB uses creatorId as the partition key.
+       * Querying by creatorId keeps the creator
+       * management query within the correct partition.
+       */
+      const querySpec = {
+        query:
+          "SELECT * FROM c WHERE c.creatorId = @creatorId",
+        parameters: [
+          {
+            name: "@creatorId",
+            value: session.user.id,
+          },
+        ],
+      };
+
+      const { resources } =
+        await container.items
+          .query<Video>(querySpec)
+          .fetchAll();
+
+      let filteredVideos = resources;
 
       /*
        * Search within the creator's own videos.
@@ -209,12 +202,21 @@ export default async function handler(
      *
      * Only processed videos are exposed.
      */
-    filteredVideos =
-      filteredVideos.filter(
-        (video) =>
-          video.status ===
-          "PROCESSED"
-      );
+    const { resources } =
+      await container.items
+        .query<Video>({
+          query:
+            "SELECT * FROM c WHERE c.status = @status",
+          parameters: [
+            {
+              name: "@status",
+              value: "PROCESSED",
+            },
+          ],
+        })
+        .fetchAll();
+
+    let filteredVideos = resources;
 
     /*
      * Search.

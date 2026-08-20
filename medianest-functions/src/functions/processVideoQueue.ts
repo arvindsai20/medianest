@@ -3,8 +3,9 @@ import {
   BlobServiceClient,
 } from "@azure/storage-blob";
 import {
-  TableClient,
-} from "@azure/data-tables";
+  CosmosClient,
+  Container,
+} from "@azure/cosmos";
 import ffmpegPath from "ffmpeg-static";
 import {
   spawn,
@@ -19,6 +20,42 @@ type VideoProcessingJob = {
   videoId: string;
   blobName: string;
   createdAt: string;
+};
+
+type VideoEntity = {
+  id: string;
+
+  videoId?: string;
+
+  creatorId: string;
+  creatorName?: string;
+
+  title?: string;
+  publisher?: string;
+  producer?: string;
+  genre?: string;
+  ageRating?: string;
+  description?: string;
+
+  blobName?: string;
+  blobUrl?: string;
+  originalFileName?: string;
+  contentType?: string;
+
+  status?: string;
+
+  convertedBlobName?: string;
+  convertedBlobUrl?: string;
+
+  transcript?: string;
+  transcriptLanguage?: string;
+
+  processingError?: string;
+
+  createdAt?: string;
+  processedAt?: string;
+
+  [key: string]: unknown;
 };
 
 function getEnv(name: string): string {
@@ -46,40 +83,102 @@ function getBlobContainerName(): string {
   );
 }
 
-function getVideosTableName(): string {
-  return (
-    process.env.AZURE_VIDEOS_TABLE ||
-    "Videos"
-  );
+function getCosmosContainer(): Container {
+  const endpoint =
+    getEnv("COSMOS_ENDPOINT");
+
+  const key =
+    getEnv("COSMOS_KEY");
+
+  const database =
+    process.env.COSMOS_DATABASE ||
+    "MediaNestDB";
+
+  const containerName =
+    process.env.COSMOS_VIDEOS_CONTAINER ||
+    "Videos";
+
+  const client =
+    new CosmosClient({
+      endpoint,
+      key,
+    });
+
+  return client
+    .database(database)
+    .container(containerName);
 }
 
-function isLocalAzurite(
-  connectionString: string
-): boolean {
-  return (
-    connectionString.includes(
-      "127.0.0.1"
-    ) ||
-    connectionString.includes(
-      "localhost"
-    )
-  );
+/*
+ * Find a video document by videoId.
+ *
+ * The Videos container uses /creatorId as its
+ * partition key, but the queue message only
+ * contains videoId. Therefore this initial lookup
+ * is cross-partition.
+ */
+async function getVideo(
+  videoId: string
+): Promise<VideoEntity> {
+  const container =
+    getCosmosContainer();
+
+  const {
+    resources,
+  } = await container.items
+    .query<VideoEntity>({
+      query:
+        "SELECT TOP 1 * FROM c WHERE c.videoId = @videoId",
+      parameters: [
+        {
+          name: "@videoId",
+          value: videoId,
+        },
+      ],
+    })
+    .fetchAll();
+
+  const video = resources[0];
+
+  if (!video) {
+    throw new Error(
+      `Video ${videoId} was not found in Cosmos DB.`
+    );
+  }
+
+  if (!video.creatorId) {
+    throw new Error(
+      `Video ${videoId} does not contain a creatorId.`
+    );
+  }
+
+  return video;
 }
 
-function getTableClient(): TableClient {
-  const connectionString =
-    getStorageConnectionString();
+/*
+ * Update a video document in Cosmos DB.
+ *
+ * First locate the document to obtain creatorId,
+ * then perform a partition-targeted item read/update.
+ */
+async function updateVideo(
+  videoId: string,
+  updates: Record<string, unknown>
+): Promise<void> {
+  const container =
+    getCosmosContainer();
 
-  return TableClient.fromConnectionString(
-    connectionString,
-    getVideosTableName(),
-    {
-      allowInsecureConnection:
-        isLocalAzurite(
-          connectionString
-        ),
-    }
-  );
+  const video =
+    await getVideo(videoId);
+
+  const updatedVideo: VideoEntity = {
+    ...video,
+    ...updates,
+  };
+
+  await container
+    .item(video.id, video.creatorId)
+    .replace(updatedVideo);
 }
 
 function runFfmpeg(
@@ -106,6 +205,14 @@ function runFfmpeg(
         ...extraArgs,
         outputPath,
       ];
+
+      console.log(
+        `Running FFmpeg with output: ${outputPath}`
+      );
+
+      console.log(
+        `FFmpeg arguments: ${args.join(" ")}`
+      );
 
       const ffmpeg = spawn(
         ffmpegPath,
@@ -143,23 +250,6 @@ function runFfmpeg(
         }
       );
     }
-  );
-}
-
-async function updateVideo(
-  videoId: string,
-  updates: Record<string, unknown>
-) {
-  const tableClient =
-    getTableClient();
-
-  await tableClient.upsertEntity(
-    {
-      partitionKey: "VIDEO",
-      rowKey: videoId,
-      ...updates,
-    },
-    "Merge"
   );
 }
 
@@ -599,20 +689,55 @@ async function processVideo(
       "Starting FFmpeg conversion..."
     );
 
+    /*
+     * Browser-compatible MP4:
+     *
+     * Video:
+     * - H.264 / AVC
+     * - yuv420p pixel format
+     * - Main profile
+     * - Level 4.0
+     *
+     * Audio:
+     * - AAC
+     * - 128 kbps
+     *
+     * +faststart moves the MP4 metadata to
+     * the beginning of the file so browsers
+     * can begin playback without downloading
+     * the entire file first.
+     */
     await runFfmpeg(
       inputPath,
       outputPath,
       [
         "-c:v",
         "libx264",
+
         "-preset",
         "veryfast",
+
         "-crf",
         "23",
+
+        "-pix_fmt",
+        "yuv420p",
+
+        "-profile:v",
+        "main",
+
+        "-level",
+        "4.0",
+
         "-c:a",
         "aac",
+
         "-b:a",
         "128k",
+
+        "-ar",
+        "48000",
+
         "-movflags",
         "+faststart",
       ]
@@ -638,6 +763,8 @@ async function processVideo(
         blobHTTPHeaders: {
           blobContentType:
             "video/mp4",
+          blobCacheControl:
+            "public, max-age=3600",
         },
       }
     );
@@ -645,6 +772,23 @@ async function processVideo(
     context.log(
       "Converted video uploaded successfully."
     );
+
+    /*
+     * Verify that the converted blob
+     * actually exists after upload.
+     */
+    const convertedExists =
+      await convertedBlob.exists();
+
+    context.log(
+      `Converted blob exists: ${convertedExists}`
+    );
+
+    if (!convertedExists) {
+      throw new Error(
+        `Converted video upload verification failed: ${convertedBlobName}`
+      );
+    }
 
     context.log(
       "Extracting audio for Azure AI Speech..."
@@ -710,18 +854,28 @@ async function processVideo(
       `Media processing failed: ${errorMessage}`
     );
 
-    await updateVideo(
-      job.videoId,
-      {
-        status:
-          "PROCESSING_FAILED",
-        processingError:
-          errorMessage.slice(
-            0,
-            1000
-          ),
-      }
-    );
+    try {
+      await updateVideo(
+        job.videoId,
+        {
+          status:
+            "PROCESSING_FAILED",
+          processingError:
+            errorMessage.slice(
+              0,
+              1000
+            ),
+        }
+      );
+    } catch (updateError) {
+      context.error(
+        `Failed to update Cosmos DB processing status: ${
+          updateError instanceof Error
+            ? updateError.message
+            : String(updateError)
+        }`
+      );
+    }
 
     throw error;
   } finally {

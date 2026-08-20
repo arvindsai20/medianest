@@ -9,6 +9,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@azure/cosmos": "^4.10.0",
     "@azure/data-tables": "^13.3.0",
     "@azure/functions": "^4.9.0",
     "@azure/storage-blob": "^12.28.0",

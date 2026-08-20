@@ -6,12 +6,8 @@ import type {
 import { getServerSession } from "next-auth";
 
 import {
-  ensureTable,
-} from "../../../lib/azure/tables";
-
-import {
-  STORAGE_CONFIG,
-} from "../../../lib/azure/client";
+  getVideosContainer,
+} from "../../../lib/azure/cosmos";
 
 import {
   authOptions,
@@ -22,6 +18,42 @@ type ResponseData = {
   message: string;
   video?: any;
   error?: string;
+};
+
+type Video = {
+  id: string;
+
+  videoId: string;
+
+  creatorId: string;
+  creatorName?: string;
+
+  title: string;
+  publisher: string;
+  producer: string;
+  genre: string;
+  ageRating: string;
+
+  description?: string;
+
+  blobName: string;
+  blobUrl: string;
+
+  convertedBlobName?: string;
+  convertedBlobUrl?: string;
+
+  originalFileName?: string;
+  contentType?: string;
+
+  status: string;
+
+  createdAt: string;
+  processedAt?: string;
+  processingError?: string;
+  transcript?: string;
+  transcriptLanguage?: string;
+
+  updatedAt?: string;
 };
 
 export default async function handler(
@@ -137,21 +169,45 @@ export default async function handler(
       });
     }
 
-    const tableClient =
-      await ensureTable(
-        STORAGE_CONFIG.videosTable
-      );
+    const container =
+      getVideosContainer();
 
-    let video: any;
+    /*
+     * Find the video by videoId.
+     *
+     * The Cosmos container is partitioned by
+     * creatorId, so the creator ID is obtained
+     * from the authenticated user's session.
+     *
+     * This prevents a creator from updating
+     * another creator's video.
+     */
+    let video: Video;
 
     try {
-      video =
-        await tableClient.getEntity(
-          "VIDEO",
-          videoId
-        );
+      const {
+        resource,
+      } = await container
+        .item(
+          videoId,
+          session.user.id
+        )
+        .read<Video>();
+
+      if (!resource) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Video not found.",
+        });
+      }
+
+      video = resource;
     } catch (error: any) {
-      if (error?.statusCode === 404) {
+      if (
+        error?.code === 404 ||
+        error?.statusCode === 404
+      ) {
         return res.status(404).json({
           success: false,
           message:
@@ -164,6 +220,10 @@ export default async function handler(
 
     /*
      * Ownership check.
+     *
+     * This is retained even though the
+     * partition-key read already targets
+     * the authenticated creator's partition.
      */
     if (
       video.creatorId !==
@@ -176,10 +236,11 @@ export default async function handler(
       });
     }
 
-    const updatedVideo = {
+    const updatedVideo: Video = {
       ...video,
 
-      title: title.trim(),
+      title:
+        title.trim(),
 
       publisher:
         publisher.trim(),
@@ -202,10 +263,12 @@ export default async function handler(
         new Date().toISOString(),
     };
 
-    await tableClient.updateEntity(
-      updatedVideo,
-      "Merge"
-    );
+    await container
+      .item(
+        videoId,
+        session.user.id
+      )
+      .replace(updatedVideo);
 
     return res.status(200).json({
       success: true,
